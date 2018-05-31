@@ -7,16 +7,16 @@ Created on Mon May 21 14:54:06 2018
 """
 
 from selenium import webdriver
-from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.options import Options
-import time
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import requests
 import numpy as np
 from lxml import etree
 import pandas as pd
 from pandas import DataFrame, Series
 import datetime
-import sys
 import json
 import boto3
 import io
@@ -74,6 +74,29 @@ def funcScrapeTableWunderground(html_tree, forecast_date_str):
     #        print value.xpath("ng-saw-cell-parser/div//span/text()")
     return dayDf
 
+def funcWaitBlock(browser, url, wait_time = 10):
+    """
+    
+    """
+    # Don't wait for everything to load
+    try:
+        element = WebDriverWait(browser, wait_time).until(
+            EC.presence_of_element_located((By.ID, "hourly-forecast-table")) and 
+            EC.presence_of_element_located((By.ID, "forecast-title-long")) 
+        )
+    except:
+        # Reload the page and try again
+        print("Made it to the except block")
+        browser.get(url) #navigate to the page
+        element = WebDriverWait(browser, wait_time).until(
+            EC.presence_of_element_located((By.ID, "hourly-forecast-table")) and 
+            EC.presence_of_element_located((By.ID, "forecast-title-long"))
+        )
+    # The first time very explicitly grab today's forecast
+    # This portion is lxml
+    innerHTML = browser.execute_script("return document.body.innerHTML") #returns the inner HTML as a string
+    return innerHTML
+    
 def funcScrapeAllTablesWunderground(location, base_url = 'https://www.wunderground.com'):
     """
     
@@ -83,14 +106,16 @@ def funcScrapeAllTablesWunderground(location, base_url = 'https://www.wundergrou
     # This portion is Selenium
     chrome_options = Options()
     chrome_options.add_argument("--headless")
+    chrome_options.add_argument('--disable-extensions')
+
     browser = webdriver.Chrome(chrome_options=chrome_options)
 
     url = base_url + "/hourly/us/va/" + location + "?cm_ven=localwx_hour"
     browser.get(url) #navigate to the page
-#    time.sleep(5)
-    # The first time very explicitly grab today's forecast
-    # This portion is lxml
-    innerHTML = browser.execute_script("return document.body.innerHTML") #returns the inner HTML as a string
+
+    # Don't wait for everything to load
+    innerHTML = funcWaitBlock(browser, url)    
+
     # Make it into a parse-able tree
     html_tree = etree.HTML(innerHTML)
     # Getting what day it's forecasting for and the date we're in right now
@@ -120,40 +145,47 @@ def funcScrapeAllTablesWunderground(location, base_url = 'https://www.wundergrou
     # Go through the other days
     for i in range(10): # We can press the "Next Day Hourly Forecast" button up to 10       
         print(i + 1 )
-        
+        print('Where')
         forecast_date_dtime = early_forecast_date_dtime + datetime.timedelta(days = i + 1)
         # Go to future days
         url = base_url + "/hourly/us/va/" + location + "/date/" +\
         forecast_date_dtime.strftime("%Y-%m-%d") + "?cm_ven=localwx_hour"
-        
+
+        print('Does')
+        print(url)
         browser.get(url) #navigate to the page
-        time.sleep(5)
+        print('It')
 
         # This portion is lxml
-        innerHTML = browser.execute_script("return document.body.innerHTML") #returns the inner HTML as a string
+#        innerHTML = browser.execute_script("return document.body.innerHTML") #returns the inner HTML as a string
+        innerHTML = funcWaitBlock(browser, url)    
+        print('Hang')
+        
         # Make it into a parse-able tree
         html_tree = etree.HTML(innerHTML)
-
+        print('?')
         # Getting what day it's forecasting for and the date we're in right now
         full_date = html_tree.xpath("//*[@id='forecast-title-long']/text()")[0]
+        print('I')
         if "Today" in full_date:
             as_of_time2 = full_date[-5:]
             assert as_of_time == as_of_time2
         forecast_date = full_date[-5:]
         retrieval_time = datetime.datetime.now()
         as_of_date = retrieval_time.replace(microsecond=0,second=0,minute=0) # What hour we're taking the forecasts from
+        print('Can\'t')
         assert as_of_master == as_of_date
         forecast_year = as_of_date.year # The year
-        
+        print('Tell')
         # Now scrape
         dayDf = funcScrapeTableWunderground(html_tree, 
                                             forecast_date_dtime.strftime("%Y-%m-%d"))
-    
+        print('At')
         dayDf['As Of'] = as_of_date
         dayDf['Location'] = location
         dayDf['Service'] = 'Weather Underground'
         dayDf['Access Time'] = retrieval_time
-        
+        print('All')
         tenDayDf = tenDayDf.append(dayDf)
     
     tenDayDf = tenDayDf.set_index(['As Of', 'Time', 'Location', 'Service'])
