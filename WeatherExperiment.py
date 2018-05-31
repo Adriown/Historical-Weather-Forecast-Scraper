@@ -7,6 +7,8 @@ Created on Mon May 21 14:54:06 2018
 """
 
 from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.chrome.options import Options
 import time
 import requests
 import numpy as np
@@ -79,7 +81,10 @@ def funcScrapeAllTablesWunderground(location, base_url = 'https://www.wundergrou
     tenDayDf = DataFrame()
     
     # This portion is Selenium
-    browser = webdriver.Chrome() #replace with .Firefox(), or with the browser of your choice
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    browser = webdriver.Chrome(chrome_options=chrome_options)
+
     url = base_url + "/hourly/us/va/" + location + "?cm_ven=localwx_hour"
     browser.get(url) #navigate to the page
 #    time.sleep(5)
