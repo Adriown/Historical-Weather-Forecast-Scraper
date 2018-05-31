@@ -17,6 +17,7 @@ from lxml import etree
 import pandas as pd
 from pandas import DataFrame, Series
 import datetime
+import time
 import json
 import boto3
 import io
@@ -81,17 +82,19 @@ def funcWaitBlock(browser, url, wait_time = 10):
     # Don't wait for everything to load
     try:
         element = WebDriverWait(browser, wait_time).until(
-            EC.presence_of_element_located((By.ID, "hourly-forecast-table")) and 
-            EC.presence_of_element_located((By.ID, "forecast-title-long")) 
+            EC.visibility_of_element_located((By.ID, "hourly-forecast-table")) and 
+            EC.visibility_of_element_located((By.ID, "forecast-title-long")) 
         )
+        time.sleep(5)
     except:
         # Reload the page and try again
         print("Made it to the except block")
         browser.get(url) #navigate to the page
         element = WebDriverWait(browser, wait_time).until(
-            EC.presence_of_element_located((By.ID, "hourly-forecast-table")) and 
-            EC.presence_of_element_located((By.ID, "forecast-title-long"))
+            EC.visibility_of_element_located((By.ID, "hourly-forecast-table")) and 
+            EC.visibility_of_element_located((By.ID, "forecast-title-long"))
         )
+        time.sleep(5)
     # The first time very explicitly grab today's forecast
     # This portion is lxml
     innerHTML = browser.execute_script("return document.body.innerHTML") #returns the inner HTML as a string
@@ -191,8 +194,9 @@ def funcScrapeAllTablesWunderground(location, base_url = 'https://www.wundergrou
     tenDayDf = tenDayDf.set_index(['As Of', 'Time', 'Location', 'Service'])
     
     browser.quit()
-    
+
     return tenDayDf
+
 
 wundergroundDf = funcScrapeAllTablesWunderground('Charlottesville')
 
